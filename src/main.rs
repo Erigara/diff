@@ -1,116 +1,33 @@
-use std::cmp::max;
+use std::path::PathBuf;
+use structopt::StructOpt;
+
+mod file;
+mod lcsq;
+
+#[derive(StructOpt, Debug)]
+#[structopt(name = "diff")]
+struct Opt {
+    /// Old File to process
+    #[structopt(name = "OLD_FILE", parse(from_os_str))]
+    old_file: PathBuf,
+    /// New Files to process
+    #[structopt(name = "NEW_FILE", parse(from_os_str))]
+    new_file: PathBuf,
+}
 
 fn main() {
-    let s = [1, 3, 2, 4];
-    let t = [1, 2, 3, 4];
-    let lm = lcsq_lengths(&s, &t);
-    let lcsq = backtrack_lcsq(&lm, &s, &t); 
-    println!("{:?}", lm);
-    println!("LCSQ: {:?}", lcsq);
-
-    let diffs =  diff(&lm, &s, &t);
-    println!("Diff: {:?}", diffs);
-    print_diff(&diffs, &s, &t);
+    let opt = Opt::from_args();
+    print_diff(opt.old_file.to_str().unwrap(),
+               opt.new_file.to_str().unwrap());
 }
 
+fn print_diff(old_file: &str, new_file: &str) {
+    let old_hash_vec = file::file_to_hash_vector(old_file);
+    let new_hash_vec = file::file_to_hash_vector(new_file);
+    let rev_diff = lcsq::get_rev_diff(&old_hash_vec, &new_hash_vec);
 
-fn lcsq_lengths(s: &[i64], t: &[i64]) -> Vec<usize> {
-    let s_len = s.len();
-    let t_len = t.len();
-    let mut lengths_matrix = vec![0; (s_len + 1) * (t_len + 1)];
-    for i in 1..s_len + 1 {
-        for j in 1..t_len + 1 {
-            if s[i - 1] == t[j - 1] {
-                lengths_matrix[(t_len + 1) * i + j] = 1 + lengths_matrix[(t_len + 1) * (i - 1) + (j - 1)];
-            } else {
-                lengths_matrix[(t_len + 1) * i + j] = max(lengths_matrix[(t_len + 1) * (i - 1) + j],
-                                                          lengths_matrix[(t_len + 1) * i + (j - 1)]);
-            }
-        }
-    }
-    lengths_matrix
-}
+    let mut old_line_iter = file::file_to_line_iter(old_file);
+    let mut new_line_iter = file::file_to_line_iter(new_file);
 
-fn backtrack_lcsq(lengths_matrix: &[usize], s: &[i64], t: &[i64]) -> Vec<i64> {
-    //let mut lcsq: VecDeque<i64> = VecDeque::new();
-    let s_len = s.len();
-    let t_len = t.len();
-    let lcsq_len = lengths_matrix[lengths_matrix.len() - 1];
-    let mut lcsq = vec![0; lcsq_len];
-
-    let mut i = s_len;
-    let mut j = t_len;
-    let mut z = lcsq_len;
-
-    while i > 0 && j > 0  && z > 0 {
-        if s[i - 1] == t[j - 1] {
-            //lcsq.push_front(s[i - 1]);
-            lcsq[z - 1] = s[i - 1];
-            z -= 1;
-            i -= 1;
-            j -= 1;
-        } else if lengths_matrix[(t_len + 1) * i  + (j - 1)] > lengths_matrix[(t_len + 1) * (i - 1) + j] {
-            j -= 1;
-        } else {
-            i -= 1;
-        }
-    }
-    lcsq
-}
-
-#[derive(Clone, Debug)]
-enum Diff {
-    Same,
-    Added,
-    Substracted,
-}
-
-fn diff(lengths_matrix: &[usize], s: &[i64], t: &[i64]) -> Vec<Diff>{
-    let s_len = s.len();
-    let t_len = t.len();
-    let mut i = s_len;
-    let mut j = t_len;
-    let mut diffs: Vec<Diff> = Vec::new();
-    while i > 0 || j > 0  {
-        if i == 0 {
-            j -= 1;
-            diffs.push(Diff::Added);
-        } else if j == 0 {
-            i -= 1;
-            diffs.push(Diff::Substracted);
-        } else if s[i - 1] == t[j - 1] {
-            diffs.push(Diff::Same);
-            i -= 1;
-            j -= 1;
-        } else if lengths_matrix[(t_len + 1) * i  + (j - 1)] < lengths_matrix[(t_len + 1) * (i - 1) + j] {
-            diffs.push(Diff::Substracted);
-            i -= 1;
-        } else {
-            diffs.push(Diff::Added);
-            j -= 1;
-        }
-    }
-    diffs
-}
-
-fn print_diff(diffs: &[Diff], s: &[i64], t: &[i64]) {
-    let mut i = 0;
-    let mut j = 0;
-    for elem in diffs.iter().rev(){
-        match elem {
-            Diff::Same => {
-                println!("    {}", s[i]);
-                i += 1;
-                j += 1;
-            },
-            Diff::Added => {
-                println!("+++ {}", t[j]);
-                j += 1;
-            },
-            Diff::Substracted => {
-                println!("--- {}", s[i]);
-                i += 1;
-            },
-        }
-    }
+    lcsq::print_diff_iter(&rev_diff, &mut old_line_iter, &mut new_line_iter);
 }
