@@ -17,8 +17,10 @@ struct Opt {
 
 fn main() {
     let opt = Opt::from_args();
-    print_diff(opt.old_file.to_str().unwrap(),
-               opt.new_file.to_str().unwrap());
+    print_diff(
+        opt.old_file.to_str().unwrap(),
+        opt.new_file.to_str().unwrap(),
+    );
 }
 
 fn print_diff(old_file: &str, new_file: &str) {

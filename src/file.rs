@@ -1,12 +1,8 @@
 use std::collections::hash_map::DefaultHasher;
 use std::fs::File;
 use std::hash::{Hash, Hasher};
-use std::io::{BufRead, BufReader, Error, Lines};
-
-type UnwprapedLineIterator =
-    std::iter::Map<Lines<BufReader<File>>, fn(Result<String, Error>) -> String>;
-
-pub fn file_to_line_iter(file_name: &str) -> UnwprapedLineIterator {
+use std::io::{BufRead, BufReader, Error};
+pub fn file_to_line_iter(file_name: &str) -> impl Iterator<Item = String> {
     match File::open(file_name) {
         Ok(f) => {
             let reader = BufReader::new(f);
